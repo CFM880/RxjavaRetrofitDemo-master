@@ -6,6 +6,7 @@ import com.wzgiceman.rxretrofitlibrary.retrofit_rx.Api.BaseResultEntity;
 
 import java.util.List;
 
+import io.reactivex.Flowable;
 import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.Field;
@@ -23,10 +24,10 @@ public interface HttpPostService {
     Call<RetrofitEntity> getAllVedio(@Body boolean once_no);
 
     @POST("AppFiftyToneGraph/videoLink")
-    Observable<RetrofitEntity> getAllVedioBy(@Body boolean once_no);
+    Flowable<RetrofitEntity> getAllVedioBy(@Body boolean once_no);
 
     @FormUrlEncoded
     @POST("AppFiftyToneGraph/videoLink")
-    Observable<BaseResultEntity<List<SubjectResulte>>> getAllVedioBys(@Field("once") boolean once_no);
+    Flowable<BaseResultEntity<List<SubjectResulte>>> getAllVedioBys(@Field("once") boolean once_no);
 
 }

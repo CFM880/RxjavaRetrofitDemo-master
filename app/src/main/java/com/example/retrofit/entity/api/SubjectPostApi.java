@@ -5,6 +5,7 @@ import com.trello.rxlifecycle.components.support.RxAppCompatActivity;
 import com.wzgiceman.rxretrofitlibrary.retrofit_rx.Api.BaseApi;
 import com.wzgiceman.rxretrofitlibrary.retrofit_rx.listener.HttpOnNextListener;
 
+import io.reactivex.Flowable;
 import retrofit2.Retrofit;
 import rx.Observable;
 
@@ -49,7 +50,7 @@ public class SubjectPostApi extends BaseApi {
     }
 
     @Override
-    public Observable getObservable(Retrofit retrofit) {
+    public Flowable getObservable(Retrofit retrofit) {
         HttpPostService service = retrofit.create(HttpPostService.class);
         return service.getAllVedioBys(isAll());
     }

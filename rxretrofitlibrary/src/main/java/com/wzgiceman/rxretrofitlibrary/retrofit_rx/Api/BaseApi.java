@@ -6,15 +6,15 @@ import com.wzgiceman.rxretrofitlibrary.retrofit_rx.listener.HttpOnNextListener;
 
 import java.lang.ref.SoftReference;
 
+import io.reactivex.Flowable;
+import io.reactivex.functions.Function;
 import retrofit2.Retrofit;
-import rx.Observable;
-import rx.functions.Func1;
 
 /**
  * 请求数据统一封装类
  * Created by WZG on 2016/7/16.
  */
-public abstract class BaseApi<T> implements Func1<BaseResultEntity<T>, T> {
+public abstract class BaseApi<T> implements Function<BaseResultEntity<T>, T> {
     //rx生命周期管理
     private SoftReference<RxAppCompatActivity> rxAppCompatActivity;
     /*回调*/
@@ -57,7 +57,7 @@ public abstract class BaseApi<T> implements Func1<BaseResultEntity<T>, T> {
      * @param retrofit
      * @return
      */
-    public abstract Observable getObservable(Retrofit retrofit);
+    public abstract Flowable getObservable(Retrofit retrofit);
 
 
     public int getCookieNoNetWorkTime() {
@@ -180,10 +180,11 @@ public abstract class BaseApi<T> implements Func1<BaseResultEntity<T>, T> {
     }
 
     @Override
-    public T call(BaseResultEntity<T> httpResult) {
+    public T apply(BaseResultEntity<T> httpResult) {
         if (httpResult.getRet() == 0) {
             throw new HttpTimeException(httpResult.getMsg());
         }
+        System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>BaseAPI apply");
         return httpResult.getData();
     }
 

@@ -1,10 +1,15 @@
 package com.wzgiceman.rxretrofitlibrary.retrofit_rx.exception;
 
+import org.reactivestreams.Publisher;
+
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import io.reactivex.Flowable;
+import io.reactivex.functions.BiFunction;
+import io.reactivex.functions.Function;
 import rx.Observable;
 import rx.functions.Func1;
 import rx.functions.Func2;
@@ -13,7 +18,7 @@ import rx.functions.Func2;
  * retry条件
  * Created by WZG on 2016/10/17.
  */
-public class RetryWhenNetworkException implements Func1<Observable<? extends Throwable>, Observable<?>> {
+public class RetryWhenNetworkException implements Function<Flowable<? extends Throwable>, Publisher<?>> {
 //    retry次数
     private int count = 3;
 //    延迟
@@ -37,26 +42,31 @@ public class RetryWhenNetworkException implements Func1<Observable<? extends Thr
     }
 
     @Override
-    public Observable<?> call(Observable<? extends Throwable> observable) {
-        return observable
-                .zipWith(Observable.range(1, count + 1), new Func2<Throwable, Integer, Wrapper>() {
-                    @Override
-                    public Wrapper call(Throwable throwable, Integer integer) {
-                        return new Wrapper(throwable, integer);
-                    }
-                }).flatMap(new Func1<Wrapper, Observable<?>>() {
-                    @Override
-                    public Observable<?> call(Wrapper wrapper) {
-                        if ((wrapper.throwable instanceof ConnectException
-                                || wrapper.throwable instanceof SocketTimeoutException
-                                || wrapper.throwable instanceof TimeoutException)
-                                && wrapper.index < count + 1) { //如果超出重试次数也抛出错误，否则默认是会进入onCompleted
-                            return Observable.timer(delay + (wrapper.index - 1) * increaseDelay, TimeUnit.MILLISECONDS);
+    public Publisher<?> apply(Flowable<? extends Throwable> flowable) throws Exception {
+        return flowable
+                .zipWith(Flowable.range(1, count + 1), new BiFunction<Throwable, Integer, Wrapper>() {
 
+                            @Override
+                            public Wrapper apply(Throwable throwable, Integer integer) throws Exception {
+                                return new Wrapper(throwable, integer);
+                            }
                         }
-                        return Observable.error(wrapper.throwable);
-                    }
-                });
+                ).flatMap(new Function<Wrapper, Flowable<?>>() {
+                              @Override
+                              public Flowable<?> apply(Wrapper wrapper) throws Exception {
+
+                                if ((wrapper.throwable instanceof ConnectException
+                                        || wrapper.throwable instanceof SocketTimeoutException
+                                        || wrapper.throwable instanceof TimeoutException)
+                                        && wrapper.index < count + 1) { //如果超出重试次数也抛出错误，否则默认是会进入onCompleted
+                                    return Flowable.timer(delay + (wrapper.index - 1) * increaseDelay, TimeUnit.MILLISECONDS);
+
+                                }
+                                return Flowable.error(wrapper.throwable);
+                              }
+                          }
+                );
+
     }
 
     private class Wrapper {

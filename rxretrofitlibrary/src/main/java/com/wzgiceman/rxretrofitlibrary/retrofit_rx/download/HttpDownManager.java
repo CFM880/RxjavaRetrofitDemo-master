@@ -18,14 +18,14 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.functions.Function;
+import io.reactivex.schedulers.Schedulers;
 import okhttp3.OkHttpClient;
 import okhttp3.ResponseBody;
 import retrofit2.Retrofit;
-import retrofit2.adapter.rxjava.RxJavaCallAdapterFactory;
+import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
-import rx.android.schedulers.AndroidSchedulers;
-import rx.functions.Func1;
-import rx.schedulers.Schedulers;
 
 /**
  * http下载处理类
@@ -91,7 +91,7 @@ public class HttpDownManager {
             Retrofit retrofit = new Retrofit.Builder()
                     .client(builder.build())
                     .addConverterFactory(GsonConverterFactory.create())
-                    .addCallAdapterFactory(RxJavaCallAdapterFactory.create())
+                    .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
                     .baseUrl(AppUtil.getBasUrl(info.getUrl()))
                     .build();
             httpService = retrofit.create(HttpDownService.class);
@@ -106,9 +106,9 @@ public class HttpDownManager {
                    /*失败后的retry配置*/
                 .retryWhen(new RetryWhenNetworkException())
                 /*读取下载写入文件*/
-                .map(new Func1<ResponseBody, DownInfo>() {
+                .map(new Function<ResponseBody, DownInfo>() {
                     @Override
-                    public DownInfo call(ResponseBody responseBody) {
+                    public DownInfo apply(ResponseBody responseBody) {
                         writeCaches(responseBody, new File(info.getSavePath()), info);
                         return info;
                     }
@@ -130,7 +130,7 @@ public class HttpDownManager {
         info.getListener().onStop();
         if (subMap.containsKey(info.getUrl())) {
             ProgressDownSubscriber subscriber = subMap.get(info.getUrl());
-            subscriber.unsubscribe();
+            subscriber.onComplete();
             subMap.remove(info.getUrl());
         }
         /*保存数据库信息和本地文件*/
@@ -149,7 +149,7 @@ public class HttpDownManager {
         info.getListener().onPuase();
         if (subMap.containsKey(info.getUrl())) {
             ProgressDownSubscriber subscriber = subMap.get(info.getUrl());
-            subscriber.unsubscribe();
+            subscriber.onComplete();
             subMap.remove(info.getUrl());
         }
         /*这里需要讲info信息写入到数据中，可自由扩展，用自己项目的数据库*/

@@ -25,22 +25,25 @@ import com.wzgiceman.rxretrofitlibrary.retrofit_rx.listener.HttpOnNextListener;
 import com.wzgiceman.rxretrofitlibrary.retrofit_rx.listener.upload.ProgressRequestBody;
 import com.wzgiceman.rxretrofitlibrary.retrofit_rx.listener.upload.UploadProgressListener;
 
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
+
 import java.io.File;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import io.reactivex.Flowable;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.functions.Consumer;
+import io.reactivex.schedulers.Schedulers;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
 import okhttp3.RequestBody;
 import retrofit2.Retrofit;
-import retrofit2.adapter.rxjava.RxJavaCallAdapterFactory;
+import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
-import rx.Observable;
-import rx.Subscriber;
-import rx.android.schedulers.AndroidSchedulers;
-import rx.functions.Action1;
-import rx.schedulers.Schedulers;
+
 
 public class MainActivity extends RxAppCompatActivity implements View.OnClickListener {
     private TextView tvMsg;
@@ -91,10 +94,10 @@ public class MainActivity extends RxAppCompatActivity implements View.OnClickLis
     }
 
     //   回调一一对应
-    HttpOnNextListener simpleOnNextListener = new HttpOnNextListener<List<SubjectResulte>>() {
+    HttpOnNextListener simpleOnNextListener = new HttpOnNextListener<Object>() {
         @Override
-        public void onNext(List<SubjectResulte> subjects) {
-            tvMsg.setText("网络返回：\n" + subjects.toString());
+        public void onNext(Object object) {
+            tvMsg.setText("网络返回：\n" + object.toString());
         }
 
         @Override
@@ -133,10 +136,10 @@ public class MainActivity extends RxAppCompatActivity implements View.OnClickLis
           public void onProgress(final long currentBytesCount, final long totalBytesCount) {
 
                 /*回到主线程中，可通过timer等延迟或者循环避免快速刷新数据*/
-              Observable.just(currentBytesCount).observeOn(AndroidSchedulers.mainThread()).subscribe(new Action1<Long>() {
+              Flowable.just(currentBytesCount).observeOn(AndroidSchedulers.mainThread()).subscribe(new Consumer<Long>() {
 
                   @Override
-                  public void call(Long aLong) {
+                  public void accept(Long aLong) throws Exception {
                       tvMsg.setText("提示:上传中");
                       progressBar.setMax((int) totalBytesCount);
                       progressBar.setProgress((int) currentBytesCount);
@@ -185,7 +188,7 @@ public class MainActivity extends RxAppCompatActivity implements View.OnClickLis
         Retrofit retrofit = new Retrofit.Builder()
                 .client(builder.build())
                 .addConverterFactory(GsonConverterFactory.create())
-                .addCallAdapterFactory(RxJavaCallAdapterFactory.create())
+                .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
                 .baseUrl(BASE_URL)
                 .build();
 
@@ -193,37 +196,33 @@ public class MainActivity extends RxAppCompatActivity implements View.OnClickLis
         final ProgressDialog pd = new ProgressDialog(this);
 
         HttpPostService apiService = retrofit.create(HttpPostService.class);
-        Observable<RetrofitEntity> observable = apiService.getAllVedioBy(true);
+        Flowable<RetrofitEntity> observable = apiService.getAllVedioBy(true);
         observable.subscribeOn(Schedulers.io()).unsubscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread())
-                .subscribe(
-                        new Subscriber<RetrofitEntity>() {
-                            @Override
-                            public void onCompleted() {
-                                if (pd != null && pd.isShowing()) {
-                                    pd.dismiss();
-                                }
-                            }
+                .subscribe(new Subscriber<RetrofitEntity>() {
+                    @Override
+                    public void onSubscribe(Subscription s) {
+                        pd.show();
+                    }
 
-                            @Override
-                            public void onError(Throwable e) {
-                                if (pd != null && pd.isShowing()) {
-                                    pd.dismiss();
-                                }
-                            }
+                    @Override
+                    public void onNext(RetrofitEntity retrofitEntity) {
+                        tvMsg.setText("无封装：\n" + retrofitEntity.getData().toString());
+                    }
 
-                            @Override
-                            public void onNext(RetrofitEntity retrofitEntity) {
-                                tvMsg.setText("无封装：\n" + retrofitEntity.getData().toString());
-                            }
-
-                            @Override
-                            public void onStart() {
-                                super.onStart();
-                                pd.show();
-                            }
+                    @Override
+                    public void onError(Throwable t) {
+                        if (pd != null && pd.isShowing()) {
+                            pd.dismiss();
                         }
+                    }
 
-                );
+                    @Override
+                    public void onComplete() {
+                        if (pd != null && pd.isShowing()) {
+                            pd.dismiss();
+                        }
+                    }
+                });
     }
 
 

@@ -8,11 +8,15 @@ import com.wzgiceman.rxretrofitlibrary.retrofit_rx.download.HttpDownManager;
 import com.wzgiceman.rxretrofitlibrary.retrofit_rx.listener.HttpDownOnNextListener;
 import com.wzgiceman.rxretrofitlibrary.retrofit_rx.utils.DbDownUtil;
 
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
+
 import java.lang.ref.SoftReference;
 
-import rx.Subscriber;
-import rx.android.schedulers.AndroidSchedulers;
-import rx.functions.Action1;
+import io.reactivex.Flowable;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.functions.Consumer;
+
 
 /**
  * 断点下载处理类Subscriber
@@ -21,7 +25,7 @@ import rx.functions.Action1;
  * 调用者自己对请求数据进行处理
  * Created by WZG on 2016/7/16.
  */
-public class ProgressDownSubscriber<T> extends Subscriber<T> implements DownloadProgressListener {
+public class ProgressDownSubscriber<T>  implements Subscriber<T>, DownloadProgressListener {
     //弱引用结果回调
     private SoftReference<HttpDownOnNextListener> mSubscriberOnNextListener;
     /*下载数据*/
@@ -45,7 +49,7 @@ public class ProgressDownSubscriber<T> extends Subscriber<T> implements Download
      * 显示ProgressDialog
      */
     @Override
-    public void onStart() {
+    public void  onSubscribe(Subscription s) {
         if(mSubscriberOnNextListener.get()!=null){
             mSubscriberOnNextListener.get().onStart();
         }
@@ -56,7 +60,7 @@ public class ProgressDownSubscriber<T> extends Subscriber<T> implements Download
      * 完成，隐藏ProgressDialog
      */
     @Override
-    public void onCompleted() {
+    public void onComplete() {
         if(mSubscriberOnNextListener.get()!=null){
             mSubscriberOnNextListener.get().onComplete();
         }
@@ -103,11 +107,11 @@ public class ProgressDownSubscriber<T> extends Subscriber<T> implements Download
         downInfo.setReadLength(read);
         if (mSubscriberOnNextListener.get() != null) {
             /*接受进度消息，造成UI阻塞，如果不需要显示进度可去掉实现逻辑，减少压力*/
-            rx.Observable.just(read).observeOn(AndroidSchedulers.mainThread())
-                    .subscribe(new Action1<Long>() {
+            Flowable.just(read).observeOn(AndroidSchedulers.mainThread())
+                    .subscribe(new Consumer<Long>() {
                         @Override
-                        public void call(Long aLong) {
-                      /*如果暂停或者停止状态延迟，不需要继续发送回调，影响显示*/
+                        public void accept(Long aLong) throws Exception {
+                            /*如果暂停或者停止状态延迟，不需要继续发送回调，影响显示*/
                             if(downInfo.getState()==DownState.PAUSE||downInfo.getState()==DownState.STOP)return;
                             downInfo.setState(DownState.DOWN);
                             mSubscriberOnNextListener.get().updateProgress(aLong,downInfo.getCountLength());

@@ -5,6 +5,7 @@ import com.trello.rxlifecycle.components.support.RxAppCompatActivity;
 import com.wzgiceman.rxretrofitlibrary.retrofit_rx.Api.BaseApi;
 import com.wzgiceman.rxretrofitlibrary.retrofit_rx.listener.HttpOnNextListener;
 
+import io.reactivex.Flowable;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
@@ -36,7 +37,7 @@ public class UploadApi extends BaseApi {
     }
 
     @Override
-    public Observable getObservable(Retrofit retrofit) {
+    public Flowable getObservable(Retrofit retrofit) {
         HttpUploadService service = retrofit.create(HttpUploadService.class);
         RequestBody uid= RequestBody.create(MediaType.parse("text/plain"), "4811420");
         RequestBody key = RequestBody.create(MediaType.parse("text/plain"), "cfed6cc8caad0d79ea56d917376dc4df");

@@ -2,7 +2,6 @@ package com.wzgiceman.rxretrofitlibrary.retrofit_rx.http;
 
 import android.util.Log;
 
-import com.trello.rxlifecycle.android.ActivityEvent;
 import com.wzgiceman.rxretrofitlibrary.retrofit_rx.Api.BaseApi;
 import com.wzgiceman.rxretrofitlibrary.retrofit_rx.RxRetrofitApp;
 import com.wzgiceman.rxretrofitlibrary.retrofit_rx.exception.RetryWhenNetworkException;
@@ -13,14 +12,14 @@ import com.wzgiceman.rxretrofitlibrary.retrofit_rx.subscribers.ProgressSubscribe
 import java.lang.ref.SoftReference;
 import java.util.concurrent.TimeUnit;
 
+import io.reactivex.Flowable;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.schedulers.Schedulers;
 import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Retrofit;
-import retrofit2.adapter.rxjava.RxJavaCallAdapterFactory;
+import retrofit2.adapter.rxjava2.RxJava2CallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
-import rx.Observable;
-import rx.android.schedulers.AndroidSchedulers;
-import rx.schedulers.Schedulers;
 
 /**
  * http交互处理类
@@ -64,37 +63,28 @@ public class HttpManager {
         Retrofit retrofit = new Retrofit.Builder()
                 .client(builder.build())
                 .addConverterFactory(GsonConverterFactory.create())
-                .addCallAdapterFactory(RxJavaCallAdapterFactory.create())
+                .addCallAdapterFactory(RxJava2CallAdapterFactory.create())
                 .baseUrl(basePar.getBaseUrl())
                 .build();
 
 
-        /*rx处理*/
-        ProgressSubscriber subscriber = new ProgressSubscriber(basePar);
-        Observable observable = basePar.getObservable(retrofit)
+//        /*rx处理*/
+//        ProgressSubscriber subscriber = new ProgressSubscriber(basePar);
+        basePar.getObservable(retrofit)
                  /*失败后的retry配置*/
                 .retryWhen(new RetryWhenNetworkException(basePar.getRetryCount(),
                         basePar.getRetryDelay(), basePar.getRetryIncreaseDelay()))
                 /*生命周期管理*/
 //                .compose(basePar.getRxAppCompatActivity().bindToLifecycle())
-                .compose(basePar.getRxAppCompatActivity().bindUntilEvent(ActivityEvent.PAUSE))
+//                .compose(basePar.getRxAppCompatActivity().bindUntilEvent(ActivityEvent.PAUSE))
                 /*http请求线程*/
                 .subscribeOn(Schedulers.io())
                 .unsubscribeOn(Schedulers.io())
                 /*回调线程*/
                 .observeOn(AndroidSchedulers.mainThread())
                 /*结果判断*/
-                .map(basePar);
+                .map(basePar).subscribe(new ProgressSubscriber(basePar));
 
-
-        /*链接式对象返回*/
-        SoftReference<HttpOnNextListener> httpOnNextListener = basePar.getListener();
-        if (httpOnNextListener != null && httpOnNextListener.get() != null) {
-            httpOnNextListener.get().onNext(observable);
-        }
-
-        /*数据回调*/
-        observable.subscribe(subscriber);
 
     }
 

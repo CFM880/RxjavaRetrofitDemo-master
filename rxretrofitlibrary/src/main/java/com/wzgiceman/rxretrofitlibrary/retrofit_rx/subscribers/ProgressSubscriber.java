@@ -14,12 +14,15 @@ import com.wzgiceman.rxretrofitlibrary.retrofit_rx.listener.HttpOnNextListener;
 import com.wzgiceman.rxretrofitlibrary.retrofit_rx.utils.AppUtil;
 import com.wzgiceman.rxretrofitlibrary.retrofit_rx.utils.CookieDbUtil;
 
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
+
 import java.lang.ref.SoftReference;
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 
-import rx.Observable;
-import rx.Subscriber;
+import io.reactivex.Flowable;
+
 
 /**
  * 用于在Http请求开始时，自动显示一个ProgressDialog
@@ -27,11 +30,11 @@ import rx.Subscriber;
  * 调用者自己对请求数据进行处理
  * Created by WZG on 2016/7/16.
  */
-public class ProgressSubscriber<T> extends Subscriber<T> {
+public class ProgressSubscriber<T> implements Subscriber<T> {
     /*是否弹框*/
     private boolean showPorgress = true;
     /* 软引用回调接口*/
-    private SoftReference<HttpOnNextListener> mSubscriberOnNextListener;
+    private HttpOnNextListener mSubscriberOnNextListener;
     /*软引用反正内存泄露*/
     private SoftReference<RxAppCompatActivity> mActivity;
     /*加载框可自己定义*/
@@ -47,7 +50,7 @@ public class ProgressSubscriber<T> extends Subscriber<T> {
      */
     public ProgressSubscriber(BaseApi api) {
         this.api = api;
-        this.mSubscriberOnNextListener = api.getListener();
+        this.mSubscriberOnNextListener = (HttpOnNextListener) api.getListener().get();
         this.mActivity = new SoftReference<>(api.getRxAppCompatActivity());
         setShowPorgress(api.isShowProgress());
         if (api.isShowProgress()) {
@@ -68,8 +71,8 @@ public class ProgressSubscriber<T> extends Subscriber<T> {
                 pd.setOnCancelListener(new DialogInterface.OnCancelListener() {
                     @Override
                     public void onCancel(DialogInterface dialogInterface) {
-                        if (mSubscriberOnNextListener.get() != null) {
-                            mSubscriberOnNextListener.get().onCancel();
+                        if (mSubscriberOnNextListener!= null) {
+                            mSubscriberOnNextListener.onCancel();
                         }
                         onCancelProgress();
                     }
@@ -108,7 +111,9 @@ public class ProgressSubscriber<T> extends Subscriber<T> {
      * 显示ProgressDialog
      */
     @Override
-    public void onStart() {
+    public void onSubscribe(Subscription s) {
+        s.request(Long.MAX_VALUE);
+        System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>ProgressSubscriber onSubscribe");
         showProgressDialog();
         /*缓存并且有网*/
         if (api.isCache() && AppUtil.isNetworkAvailable(RxRetrofitApp.getApplication())) {
@@ -117,11 +122,10 @@ public class ProgressSubscriber<T> extends Subscriber<T> {
             if (cookieResulte != null) {
                 long time = (System.currentTimeMillis() - cookieResulte.getTime()) / 1000;
                 if (time < api.getCookieNetWorkTime()) {
-                    if (mSubscriberOnNextListener.get() != null) {
-                        mSubscriberOnNextListener.get().onCacheNext(cookieResulte.getResulte());
+                    if (mSubscriberOnNextListener != null) {
+                        mSubscriberOnNextListener.onCacheNext(cookieResulte.getResulte());
                     }
-                    onCompleted();
-                    unsubscribe();
+                    onComplete();
                 }
             }
         }
@@ -131,7 +135,8 @@ public class ProgressSubscriber<T> extends Subscriber<T> {
      * 完成，隐藏ProgressDialog
      */
     @Override
-    public void onCompleted() {
+    public void onComplete() {
+        System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>ProgressSubscriber onNext");
         dismissProgressDialog();
     }
 
@@ -143,42 +148,49 @@ public class ProgressSubscriber<T> extends Subscriber<T> {
      */
     @Override
     public void onError(Throwable e) {
+        System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>ProgressSubscriber onNext");
         dismissProgressDialog();
         /*需要緩存并且本地有缓存才返回*/
         if (api.isCache()) {
-            Observable.just(api.getUrl()).subscribe(new Subscriber<String>() {
+            Flowable.just(api.getUrl()).subscribe(new Subscriber<String>() {
                 @Override
-                public void onCompleted() {
+                public void onSubscribe(Subscription s) {
 
-                }
-
-                @Override
-                public void onError(Throwable e) {
-                    errorDo(e);
                 }
 
                 @Override
                 public void onNext(String s) {
-                    /*获取缓存数据*/
+                    // /*获取缓存数据*/
                     CookieResulte cookieResulte = CookieDbUtil.getInstance().queryCookieBy(s);
                     if (cookieResulte == null) {
                         throw new HttpTimeException("网络错误");
                     }
                     long time = (System.currentTimeMillis() - cookieResulte.getTime()) / 1000;
                     if (time < api.getCookieNoNetWorkTime()) {
-                        if (mSubscriberOnNextListener.get() != null) {
-                            mSubscriberOnNextListener.get().onCacheNext(cookieResulte.getResulte());
+                        if (mSubscriberOnNextListener != null) {
+                            mSubscriberOnNextListener.onCacheNext(cookieResulte.getResulte());
                         }
                     } else {
                         CookieDbUtil.getInstance().deleteCookie(cookieResulte);
                         throw new HttpTimeException("网络错误");
                     }
                 }
+
+                @Override
+                public void onError(Throwable t) {
+                    errorDo(t);
+                }
+
+                @Override
+                public void onComplete() {
+
+                }
             });
         } else {
             errorDo(e);
         }
     }
+
 
     /*错误统一处理*/
     private void errorDo(Throwable e) {
@@ -191,8 +203,8 @@ public class ProgressSubscriber<T> extends Subscriber<T> {
         } else {
             Toast.makeText(context, "错误" + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
-        if (mSubscriberOnNextListener.get() != null) {
-            mSubscriberOnNextListener.get().onError(e);
+        if (mSubscriberOnNextListener != null) {
+            mSubscriberOnNextListener.onError(e);
         }
     }
 
@@ -203,8 +215,10 @@ public class ProgressSubscriber<T> extends Subscriber<T> {
      */
     @Override
     public void onNext(T t) {
-        if (mSubscriberOnNextListener.get() != null) {
-            mSubscriberOnNextListener.get().onNext(t);
+        System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>ProgressSubscriber onNext");
+        System.out.println(t.toString());
+        if (mSubscriberOnNextListener != null) {
+            mSubscriberOnNextListener.onNext(t);
         }
     }
 
@@ -212,9 +226,7 @@ public class ProgressSubscriber<T> extends Subscriber<T> {
      * 取消ProgressDialog的时候，取消对observable的订阅，同时也取消了http请求
      */
     public void onCancelProgress() {
-        if (!this.isUnsubscribed()) {
-            this.unsubscribe();
-        }
+        onComplete();
     }
 
 
