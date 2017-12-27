@@ -158,7 +158,7 @@ public class MainActivity extends RxAppCompatActivity implements View.OnClickLis
         @Override
         public void onNext(UploadResulte o) {
             tvMsg.setText("成功");
-            Glide.with(MainActivity.this).load(o.getHeadImgUrl()).skipMemoryCache(true).into(img);
+            Glide.with(MainActivity.this).load(o.getHeadImgUrl()).into(img);
         }
 
         @Override
